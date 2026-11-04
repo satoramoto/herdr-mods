@@ -1,4 +1,5 @@
 import { compactTokens, contextPercent, reportedMetadata } from "./metadata.js";
+import { modeLabel } from "./claude-control.js";
 
 export function bridgeFor(target) {
   if (!target?.sessionID || target.address.includes("/")) return null;
@@ -8,10 +9,18 @@ export function bridgeFor(target) {
     typeof bridge.path === "string" && bridge.path.startsWith("/") && bridge.path.endsWith("/control.sock") ? bridge : null;
 }
 
+// A Claude Code terminal that reports through the statusLine: no socket, but herdr-core
+// can type its slash commands and press its keys.
+export function claudeFor(target) {
+  const report = target ? reportedMetadata(target.terminal) : null;
+  return report?.agent === "claude" ? report : null;
+}
+
 export function promptLabels(metadata, controls) {
   const sampled = controls?.metadata;
   const data = sampled && (!metadata || sampled.updatedAt > (metadata.updatedAt ?? 0)) ? sampled : metadata ?? sampled;
-  const mode = data?.mode?.replace(/^./, (letter) => letter.toUpperCase()) ?? (data?.agent === "claude" ? "Claude" : "Mode not reported");
+  const mode = data?.agent === "claude" ? modeLabel(data.mode) ?? "Claude"
+    : data?.mode?.replace(/^./, (letter) => letter.toUpperCase()) ?? "Mode not reported";
   const percent = contextPercent(data);
   const context = data?.used == null ? "Context not reported"
     : `~${compactTokens(data.used)}${percent != null ? ` (${percent}%)` : ""}`;

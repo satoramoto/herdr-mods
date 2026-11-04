@@ -1,5 +1,5 @@
-// One flat prompt (editor + metadata) and a quiet shortcut footer.
-export const COMPOSER_HEIGHT = 140;
+// One card: the editor over a single footer line (recipient, model, actions).
+export const COMPOSER_HEIGHT = 112;
 export const EXPANDED_HEIGHT = 256;
 export const QUEUE_HEIGHT = 108;
 
@@ -25,9 +25,9 @@ export function fitComposerLayout(layout) {
   if (bar.type !== "block" || bar.content?.mod !== "unified-chat") {
     throw new Error("unified-chat-bar is used by different content; refusing to replace it.");
   }
-  // Migrate our previous default, while keeping deliberately larger allocations.
-  if (bar.min === 174) bar.min = COMPOSER_HEIGHT;
-  if (bar.size?.px === 174) bar.size.px = COMPOSER_HEIGHT;
+  // Migrate our previous defaults, while keeping deliberately larger allocations.
+  if (bar.min === 174 || bar.min === 140) bar.min = COMPOSER_HEIGHT;
+  if (bar.size?.px === 174 || bar.size?.px === 140) bar.size.px = COMPOSER_HEIGHT;
   bar.min = Math.max(bar.min ?? 0, COMPOSER_HEIGHT);
   bar.max = Math.max(bar.max ?? 0, bar.min, EXPANDED_HEIGHT + 33 + 26);
   if (!bar.size || "px" in bar.size) {

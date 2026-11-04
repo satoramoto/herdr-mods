@@ -145,6 +145,16 @@ The installer creates `~/.config/herdr-app/mods/unified-chat/` and a personal **
 
 The optional adapter is copied to `~/.config/opencode/unified-chat-metadata/` and appended to the existing CLI plugin list. Other OpenCode settings remain unchanged, and `cli.json.before-unified-chat` preserves the original. Configuration reloads live; don't restart the user's clients/service. Subsequent installs also update an adapter installed by this repository. Metadata publishing is read-only; explicit bridge actions can submit prompts, run commands/shells, interrupt, mutate inbox entries, reply to permissions/questions or change a selected variant. Discovery never invokes these actions.
 
+For Claude Code sessions (model, effort and permission mode in the footer, and the pickers that change them):
+
+```sh
+npm run claude:install
+```
+
+This copies two scripts to `~/.claude/hooks/`: `unified-chat-statusline.py`, the statusLine command that reports model, effort and context, and `unified-chat-mode.py`, a hook that records the session's permission mode, which the statusLine payload itself does not carry. It sets `statusLine` only when absent or already ours, adds its own hook entries for SessionStart, UserPromptSubmit, PreToolUse and Stop, and keeps `settings.json.before-unified-chat-claude`. The mode shows after Claude's next prompt or tool call; sessions started before the install load the hook on restart.
+
+Claude Code has no control socket, so the footer's pickers for a Claude terminal type into it through `hc send`/`hc keys`, only while it is idle and never as a prompt: `/model <alias or id>`, `/effort <level>`, `/plan`, and Shift+Tab for the next permission mode (Claude has no command that sets one by name). The footer updates on Claude's next statusLine refresh, within about 15 seconds.
+
 Switch back through Herdr's layout picker or:
 
 ```sh
@@ -305,6 +315,10 @@ are live, not cached menus. Earlier visible-fixture evidence covered key dispatc
 and uncertain-ack FIFO; it is not presented as fresh OS-key testing of the attached UI.
 
 ### Harness reporting and chatbar integration
+
+See `HARNESSES.md` for the parity playbook: the procedure used for OpenCode,
+the capability matrix for Claude Code, Codex and pi, and `npm run harness:audit`,
+which inventories installed harnesses and their control surfaces read-only.
 
 Run `npm run reporting:audit` against the running core. It queries terminal
 reports without launching harnesses or sending prompts. A report present now is

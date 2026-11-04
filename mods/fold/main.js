@@ -35,6 +35,16 @@ function toggleSidebar() {
 // draws space avatars): one strong color per hue, light and dark alike.
 const MARK = { ansi6: "#22a99a", ansi3: "#e3814f", ansi4: "#5b8def", ansi5: "#8b7cf6", ansi2: "#3fae6a", ansi1: "#d9649a" };
 const PALETTE = ["ansi6", "ansi3", "ansi4", "ansi5", "ansi2", "ansi1"];
+
+// Herdr's own vocabulary, applied the same way everywhere. A card is drawn like a pane
+// frame (surface, hairline border, the pane radius; accent border for the one in use).
+// A band is a card's header strip (the active space shows only in the card's border); a row is a list line. Selected / hover / raised
+// come from the theme, so light and dark both work and a theme swap carries through.
+const RADIUS = 8;
+const card = (el, t, on) => el.rounded(RADIUS).bg(t.background).border(1).border_color(on ? t.accent : t.input);
+const band = (el, t) => el.bg(t.background).hover((s) => s.bg(t.hover));
+const row = (el, t, on) => el.rounded(RADIUS - 1).when(on, (e) => e.bg(t.selected)).hover((s) => s.bg(t.hover));
+const dot = (color) => div().size(6).rounded(3).flex_none().bg(color);
 const chrome = (name) => `mods/workspace-chrome/${name}.svg`;
 
 // The drag contract with mods/sessions/drag-model.js: a payload in shared "sessions.drag",
@@ -100,8 +110,7 @@ export default class Fold extends View {
     const st = kidStatus(k, this.listed);
     const pic = programIcon(k.program, 13, t.foreground);
     const on = k.address === shown;
-    return h_flex().id(`sub-${k.address}`).pl(12).pr(8).rounded(7).h(24).flex_none().items_center().text_size(12)
-      .when(on, (el) => el.bg(t.raised)).hover((el) => el.bg(t.hover))
+    return row(h_flex().id(`sub-${k.address}`).pl(12).pr(8).h(24).flex_none().items_center().text_size(12), t, on)
       .on_click(() => run("terminal.peek", { terminal: k.address }))
       .children(s.lines.map((l) => div().self_start().mt(-4).w(9).h(16).mr(4).flex_none()
         .when(Boolean(l), (el) => el.border_l(1.5).border_color(t.input))
@@ -126,8 +135,7 @@ export default class Fold extends View {
       .on_click((_e, cx) => { cx.stop_propagation(); open ? this.agentFolded.add(a.address) : this.agentFolded.delete(a.address); cx.notify(); })
       .child(svg(chrome(open ? "chevron-down" : "chevron-right")).size(11).flex_none())
       .when(!open, (el) => el.child(String(subs.length)));
-    return h_flex().id(`ag-${a.address}`).pl(5).pr(8).h(26).flex_none().rounded(7).items_center().gap(7).text_size(12.5)
-      .when(a.focused, (el) => el.bg(t.selected)).cursor_pointer().hover((s) => s.bg(t.hover))
+    return row(h_flex().id(`ag-${a.address}`).px(6).h(26).flex_none().items_center().gap(8).text_size(12.5), t, a.focused).cursor_pointer()
       .on_hover((on, cx) => { if (on) this.hovered = a.address; else if (this.hovered === a.address) this.hovered = null; cx.notify(); })
       .on_click(() => run("pane.focus", { pane: a.pane }))
       .when(Boolean(pic), (el) => el.child(pic))
@@ -194,11 +202,8 @@ export default class Fold extends View {
 
   // The space's own row. `kids`: how many rows sit under it; `top`: their most urgent state.
   spaceRow({ w, i, g, tree }, t, kids, top) {
-    const on = w.active;
     const color = (shared("space.colors") ?? {})[w.id] ?? "ansi6";
     const fill = color.startsWith("#") ? color : (MARK[color] ?? t[color]);
-    // The space's color as a gentle wash over the header band; alpha is two hex digits.
-    const tint = (alpha) => (/^#[0-9a-f]{6}$/i.test(fill) ? fill + alpha : t.raised);
     const folded = this.folded.has(w.id);
     const chevron = div().id(`fold-${w.id}`).size(16).flex_none().flex().items_center().justify_center().rounded(4)
       .text_color(t.dim).cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground))
@@ -213,10 +218,8 @@ export default class Fold extends View {
       .child(svg(chrome(folded ? "chevron-right" : "chevron-down")).size(11));
     const open = !folded && kids > 0;
     // The card's header band: full width, square bottom corners when the agent list hangs below it.
-    return v_flex().relative().id(`space-${w.id}`).px(9).h(tree ? 32 : 34).flex_none().justify_center()
-      .when(open, (el) => el.rounded_t(8)).when(!open, (el) => el.rounded(8))
-      .bg(tint(on ? "2e" : "12"))
-      .when(!on, (el) => el.hover((s) => s.bg(tint("20"))))
+    return band(v_flex().relative().id(`space-${w.id}`).px(10), t).h(30).flex_none().justify_center().text_size(12.8)
+      .when(open, (el) => el.rounded_t(RADIUS)).when(!open, (el) => el.rounded(RADIUS))
       .when(this.pressed === i && this.over !== i, (el) => el.opacity(0.5))
       .when(this.pressed !== null && this.over === i && this.pressed !== i, (el) => el.child(
         div().absolute().left(0).right(0).h(2).bg(t.accent)
@@ -240,8 +243,8 @@ export default class Fold extends View {
       })
       .on_mouse_down("right", () => this.menu(w))
       .child(h_flex().gap(6).items_center()
-        .when(Boolean(tree), (el) => el.child(svg(chrome("branch")).size(13).flex_none().text_color(t.dim)))
-        .child(div().flex_shrink(0).max_w(150).truncate().font_medium().text_color(t.foreground).child(w.name))
+        .child(tree ? svg(chrome("branch")).size(13).flex_none().text_color(t.dim) : dot(fill))
+        .child(div().flex_shrink(0).max_w(150).truncate().text_color(t.foreground).child(w.name))
         .child(g ? this.gitTail(g, tree, w.name, t) : div().flex_1())
         .when(folded && kids > 0, (el) => el.child(h_flex().flex_none().gap(4).items_center().ml(4)
           .child(div().text_size(10.5).text_color(t.dim).child(String(kids)))
@@ -280,10 +283,9 @@ export default class Fold extends View {
       }
     }
     // Each space is a card: a header band, then its agents on a quieter surface under a divider.
-    return [v_flex().id(`card-${w.id}`).flex_none().mb(6).rounded(9).bg(t.surface).border(1).border_color(t.border)
-      .when(w.active, (el) => el.border_color(t.input))
+    return [card(v_flex().id(`card-${w.id}`).flex_none().mb(6), t, w.active)
       .child(head)
-      .when(body.length > 0, (el) => el.child(v_flex().px(5).pt(5).pb(6).border_t(1).border_color(t.border).children(body)))];
+      .when(body.length > 0, (el) => el.child(v_flex().px(4).py(4).border_t(1).border_color(t.border).children(body)))];
   }
 
   // Rows under a header per machine once one isn't this computer.

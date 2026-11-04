@@ -4,6 +4,7 @@ import { run, closeOverlay, props, appHome, setShared, exec } from "herdr";
 import { commandOptions } from "./prompt.js";
 import { requestControl } from "./ui-control.js";
 import { applyArgumentEdit, slashHead } from "./completion.js";
+import { sheet, heading, field, option, note, action } from "./style.js";
 
 // Controller owned by a UnifiedChat popup copy. It never sends a prompt or
 // answers an approval. Actions invoke the exact client's documented UI command.
@@ -295,16 +296,15 @@ export class OpenCodePanel {
   render(t) {
     const options = this.options();
     const title = this.kind === "arguments" ? "Live command arguments · Tab completes the draft, never runs it" : this.kind === "tools" ? "Composer tools" : this.kind === "activity" ? "Session activity, family and location shell jobs" : this.kind === "attachments" ? "Captured attachment previews" : this.kind === "models" ? "Live chat models" : this.kind === "agents" ? "Live primary agents" : this.kind === "history" ? "History and stashed drafts" : this.kind === "variants" ? "Reasoning variant" : this.kind === "mentions" ? "Attach skill, agent, file, folder or reference" : this.kind === "queue" ? "OpenCode native inbox / delivery receipts" : "OpenCode commands";
-    return v_flex().id("opencode-panel").key_context("OpenCodePanel").track_focus(this.handle)
+    return sheet(v_flex().id("opencode-panel").key_context("OpenCodePanel").track_focus(this.handle), t)
       .on_action("opencode-panel-next", (_e, cx) => { cx.stop_propagation(); this.index = ((this.index ?? 0) + 1) % Math.max(1, options.length); cx.notify(); })
       .on_action("opencode-panel-previous", (_e, cx) => { cx.stop_propagation(); this.index = ((this.index ?? 0) + options.length - 1) % Math.max(1, options.length); cx.notify(); })
       .on_action("opencode-panel-choose", (_e, cx) => { cx.stop_propagation(); this.select(this.options()[this.index ?? 0], cx); })
-      .size_full().min_h(0).p(10).gap(8).bg(t.popover).text_color(t.foreground)
-      .child(div().text_size(13).font_medium().child(title))
-      .child(Input.new(this.search).h(30).flex_none().px(8).rounded(5).border_1().border_color(t.input).text_size(12))
+      .child(heading(t, title))
+      .child(field(t, Input.new(this.search)))
       .when(this.kind === "arguments", (el) => el.child(h_flex().gap(8).flex_none()
         .child(div().flex_1().text_size(11).text_color(t.muted).child(this.argumentResult?.kind === "directory" ? "Directories from the selected server; /cd preserves literal spaces." : "Live filesystem argument suggestions; commands expose no enum/flag schema. Edit arbitrary arguments here."))
-        .child(Button.new("apply-command-arguments").h(28).text_size(12).disabled(!this.argumentResult?.command || this.argumentPending)
+        .child(action(Button.new("apply-command-arguments"), t).disabled(!this.argumentResult?.command || this.argumentPending)
           .on_click((_e, cx) => this.publishCompletion({ key: this.target.key, expected: this.draftText, value: this.search.value() }, cx)).child("Apply arguments"))))
       .when(this.kind === "mentions", (el) => el.child(div().text_size(11).text_color(t.muted)
         .child("Structured API attachments · search files with optional #start-end line range · select to attach")))
@@ -315,39 +315,35 @@ export class OpenCodePanel {
         .when(Boolean(this.preview?.image), (el) => el.child(image(this.preview.image).max_w(650).max_h(200)))
         .when(Boolean(this.preview?.text), (el) => el.child(div().text_size(12).child(this.preview.text)))
         .when(Boolean(this.preview?.truncated), (el) => el.child(div().text_size(11).text_color(t.muted).child("Preview truncated; the complete captured file is attached.")))))
-      .when(this.kind === "history", (el) => el.child(Button.new("stash-current").h(28).text_size(12)
+      .when(this.kind === "history", (el) => el.child(action(Button.new("stash-current"), t)
         .on_click((_e, cx) => this.savedAction("stash", {}, cx)).child("Stash current draft (text + attachments)")))
       .child(v_flex().id("opencode-options").flex_1().min_h(0).overflow_y_scrollbar().gap(2)
         .when(this.loading || this.argumentPending, (el) => el.child(div().p(8).text_size(12).text_color(t.muted).child("Loading from the selected OpenCode client…")))
-        .children(options.map((item, index) => Button.new(`opencode-option-${item.key ?? item.id ?? index}`)
-          .flex_none().min_w(0).w_full().px(8).py(7).rounded(5).flex().items_center().gap(10)
-          .bg(index === this.index ? t.selected : t.popover).hover((s) => s.bg(t.hover)).cursor_pointer()
+        .children(options.map((item, index) => option(Button.new(`opencode-option-${item.key ?? item.id ?? index}`).flex_none().min_w(0).w_full(), t, index === this.index)
           .on_click((_event, cx) => this.select(item, cx))
-          .child(div().min_w(0).flex_1().text_size(12).truncate().child(item.label))
+          .child(div().min_w(0).flex_1().text_size(12.8).truncate().text_color(t.foreground).child(item.label))
           .child(div().min_w(0).flex_1().text_size(11).text_color(t.muted).truncate().child(item.description ?? ""))
           .child(div().flex_none().text_size(10).text_color(t.dim).child(item.kind === "argument" ? "complete" : item.kind === "server" || item.slash?.arguments ? "insert" : this.kind === "mentions" ? item.kind : ["variant", "inbox", "receipt"].includes(item.kind) ? "select" : "native"))))
         .when(!this.loading && !options.length, (el) => el.child(div().p(8).text_size(12).text_color(t.muted).child("No matching live commands."))))
       .when(Boolean(this.selectedQueue), (el) => el.child(v_flex().flex_none().gap(6)
         .child(div().max_h(90).overflow_y_scroll().text_size(12).child(this.selectedQueue?.payload?.text ?? "[attachments]"))
         .child(h_flex().gap(10)
-          .child(Button.new("native-inbox-edit").h(28).px(10).rounded(5).bg(t.raised).text_size(12)
+          .child(action(Button.new("native-inbox-edit"), t)
             .on_click((_e, cx) => this.queueAction("edit", this.selectedQueue, cx)).child("Undo queued → edit"))
-          .child(Button.new("native-inbox-cancel").h(28).px(10).rounded(5).bg(t.raised).text_size(12)
+          .child(action(Button.new("native-inbox-cancel"), t)
             .on_click((_e, cx) => this.queueAction("inbox-cancel", this.selectedQueue, cx)).child("Cancel queued prompt"))
-          .child(Button.new("native-inbox-delivery").h(28).px(10).rounded(5).bg(t.raised).text_size(12)
+          .child(action(Button.new("native-inbox-delivery"), t)
              .on_click((_e, cx) => this.queueAction("inbox-delivery", this.selectedQueue, cx)).child(this.selectedQueue?.delivery === "queue" ? "Steer instead" : "Queue instead")))))
       .when(Boolean(this.selectedSaved), (el) => el.child(v_flex().flex_none().gap(6)
         .child(div().max_h(100).overflow_y_scroll().text_size(12).child(this.selectedSaved?.draft?.text ?? this.selectedSaved?.text ?? ""))
         .child(div().text_size(11).text_color(t.blocked).child(this.selectedSaved?.error ?? "Restoring preserves your current draft in Stashes. Uncertain sends stay blocked until receipt/manual review."))
         .child(h_flex().gap(8)
-          .when(this.selectedSaved?.kind === "receipt" && this.selectedSaved?.state === "uncertain" && Boolean(this.target.bridge), (el) => el.child(Button.new("receipt-check").h(28).text_size(12)
+          .when(this.selectedSaved?.kind === "receipt" && this.selectedSaved?.state === "uncertain" && Boolean(this.target.bridge), (el) => el.child(action(Button.new("receipt-check"), t)
             .on_click((_e, cx) => this.checkReceipt(this.selectedSaved, cx)).child("Check durable receipt")))
-          .child(Button.new("saved-restore").h(28).text_size(12).disabled(["sending", "waiting"].includes(this.selectedSaved?.state))
+          .child(action(Button.new("saved-restore"), t).disabled(["sending", "waiting"].includes(this.selectedSaved?.state))
             .on_click((_e, cx) => this.savedAction("restore", this.selectedSaved, cx)).child("Restore draft"))
-          .when(["submission", "legacy"].includes(this.selectedSaved?.source), (el) => el.child(Button.new("saved-discard").h(28).text_size(12).disabled(["sending", "waiting"].includes(this.selectedSaved?.state))
+          .when(["submission", "legacy"].includes(this.selectedSaved?.source), (el) => el.child(action(Button.new("saved-discard"), t).disabled(["sending", "waiting"].includes(this.selectedSaved?.state))
             .on_click((_e, cx) => this.savedAction("discard", this.selectedSaved, cx)).child(this.confirmDiscard === this.selectedSaved?.key ? "Confirm: reviewed; release barrier" : "Reviewed in terminal; dismiss…"))))))
-      .child(h_flex().flex_none().justify_between().text_size(10.5).text_color(t.dim)
-        .child("↑↓ select · Return choose · Escape close")
-        .child("Native prompt stays available"));
+      .child(note(t, "↑↓ select · Return chooses · the native prompt stays available"));
   }
 }

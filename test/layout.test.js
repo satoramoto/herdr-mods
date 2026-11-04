@@ -13,8 +13,9 @@ const composer = (overrides = {}) => ({
   id: "unified-chat-bar", type: "block", content: { mod: "unified-chat" }, ...overrides,
 });
 
-test("composer height fits a two-line editor, inline metadata and shortcut footer", () => {
-  const minimum = 10 + 4 + 24 + 20 + 6 + 24 + 18 * 2;
+test("composer height fits a two-line editor over the single footer line", () => {
+  // outer 4+8, card border 2, editor padding 10+6, footer 34, two 18px lines
+  const minimum = 4 + 8 + 2 + 10 + 6 + 34 + 18 * 2;
   assert.ok(COMPOSER_HEIGHT >= minimum);
   assert.ok(EXPANDED_HEIGHT >= COMPOSER_HEIGHT + QUEUE_HEIGHT + 5);
 });
