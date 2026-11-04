@@ -163,6 +163,34 @@ herdr-app do layout.switch '{"name":"main"}'
 
 No global keys are installed. The Return/Escape bindings apply only inside the composer. Optional app commands for a shown copy are `unified-chat.focus`, `unified-chat.send`, `unified-chat.stop` and `unified-chat.terminal`.
 
+#### Codex: shared-daemon bridge
+
+```sh
+npm run codex:install   # copies adapters/codex into ~/.codex/hooks/unified-chat, adds owned hooks.json entries
+```
+
+Codex's interactive TUI runs its threads on the shared local app-server daemon,
+so the composer talks to the same thread the TUI shows. The installed hook
+(SessionStart, UserPromptSubmit, Stop) starts one sidecar per session,
+`unified-chat-reporter.mjs`, which joins the thread over the daemon's Unix socket
+(WebSocket + JSON-RPC), publishes the `unified-chat` record (model, reasoning
+effort, approval policy, sandbox, context usage, blocked flags) to the terminal,
+and serves the composer's control socket with the OpenCode request vocabulary.
+Codex runs a new hook only after you trust it once: open Codex and run `/hooks`.
+The installer backs up `hooks.json` to `hooks.json.before-unified-chat-codex`
+and only touches entries whose command names `unified-chat-hook`.
+
+Through that bridge the composer sends prompts and image attachments as
+`turn/start` (receipt: the turn id), steers an active turn, interrupts it, runs
+explicit shell mode through `thread/shellCommand`, searches files, and lets you
+pick the model and reasoning effort from the daemon's live catalogue (committed
+with the next send, as for OpenCode). Codex owns its queue, approvals and
+questions: those stay in the native TUI until fan-out of approval requests to a
+second client is verified (`CODEX_FEATURES` in `adapters/codex/operations.js`).
+`npm run test:codex-api` proves this on an owned thread that it deletes afterwards;
+add `--allow-generation` to also start and immediately interrupt one real turn.
+Evidence: `evidence/codex-api-result.json`.
+
 ### Sidebar: spaces → agents as one tree
 
 ```sh

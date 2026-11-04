@@ -69,23 +69,23 @@ Legend: **A/B/C/D** tier available (see §1.3) · **✓** implemented in this re
 
 | Row (job of the native prompt) | OpenCode 2.2.5 | Claude Code 2.1.316 | Codex 0.166.0 | pi 1.4.0 |
 |---|---|---|---|---|
-| Session identity | ✓ B plugin record | ✓ C statusLine `session_id` | C hook `session_id` = thread id; A `thread/loaded/list` | C extension `sessionManager.getSessionId()` |
+| Session identity | ✓ B plugin record | ✓ C statusLine `session_id` | ✓ C hook `session_id` = thread id; A `thread/loaded/list` | C extension `sessionManager.getSessionId()` |
 | Lifecycle (working/blocked/idle) | core integration | core hook (SessionStart only) + ◐ | core hook + A `thread/status/changed` (`activeFlags`: `waitingOnApproval`, `waitingOnUserInput`) | core extension (`agent_start`/`agent_settled`, `herdr:blocked`) |
-| Model / effort / mode shown | ✓ B | ✓ C (`model`, `effort.level`, `fast_mode`; `permission_mode` via hook) | A `thread/list` (`model`, `reasoningEffort`); C hook `model`, `permission_mode` | C `pi.getModel()`, `pi.getThinkingLevel()` |
-| Context usage | ✓ B sampled | ✓ C `context_window` | A `thread/tokenUsage/updated` (`last`, `total`, `modelContextWindow`) | C `ctx.getContextUsage()` |
-| Submit with receipt | ✓ B `session.prompt` → `msg_` id | D `hc send` only (SDK streaming input exists but owns its own process) | A `turn/start` → `turn.id`; `clientUserMessageId` | B `pi.sendUserMessage()`; RPC `prompt` → `disposition` |
-| Queue / steer | ✓ B native inbox | D (native queue; Up to edit; no list API) | A `turn/steer` (`expectedTurnId`), `thread/queue/changed` + `QueuedSubmission` | B steer/followUp (`app.message.followUp`); RPC `streamingBehavior` |
-| Interrupt | ✓ B `session.interrupt` | D `hc interrupt` (Esc) | A `turn/interrupt` (`threadId`, `turnId`) | B/D (`app.interrupt`, RPC `abort`) |
-| Change model | ✓ B `switchModel` | ✓ D `/model <alias or id>` | A `turn/start.model`; `model/list` | B `pi.setModel()`; `/model` |
-| Change effort / variant | ✓ B `variant` | ✓ D `/effort <level or auto>` | A `turn/start.effort`; `supportedReasoningEfforts` | B `pi.setThinkingLevel()`; `/thinking` |
+| Model / effort / mode shown | ✓ B | ✓ C (`model`, `effort.level`, `fast_mode`; `permission_mode` via hook) | ✓ A `thread/resume` (`model`, `reasoningEffort`, `approvalPolicy`, `sandbox`) | C `pi.getModel()`, `pi.getThinkingLevel()` |
+| Context usage | ✓ B sampled | ✓ C `context_window` | ✓ A `thread/tokenUsage/updated` (`last`, `total`, `modelContextWindow`) | C `ctx.getContextUsage()` |
+| Submit with receipt | ✓ B `session.prompt` → `msg_` id | D `hc send` only (SDK streaming input exists but owns its own process) | ✓ A `turn/start` → `turn.id`; `clientUserMessageId` | B `pi.sendUserMessage()`; RPC `prompt` → `disposition` |
+| Queue / steer | ✓ B native inbox | D (native queue; Up to edit; no list API) | ✓ steer A `turn/steer` (`expectedTurnId`); queue view `thread/queue/changed` pending | B steer/followUp (`app.message.followUp`); RPC `streamingBehavior` |
+| Interrupt | ✓ B `session.interrupt` | D `hc interrupt` (Esc) | ✓ A `turn/interrupt` (`threadId`, `turnId`) | B/D (`app.interrupt`, RPC `abort`) |
+| Change model | ✓ B `switchModel` | ✓ D `/model <alias or id>` | ✓ A `turn/start.model`; `model/list` | B `pi.setModel()`; `/model` |
+| Change effort / variant | ✓ B `variant` | ✓ D `/effort <level or auto>` | ✓ A `turn/start.effort`; `supportedReasoningEfforts` | B `pi.setThinkingLevel()`; `/thinking` |
 | Change permission mode | n/a (session `permissions`) | ✓ D Shift+Tab cycle, `/plan`; no set-by-name | A `turn/start.approvalPolicy` (`on-request`, `never`, granular); `sandboxPolicy` | n/a (no built-in approvals) |
 | Approvals list + reply | ✓ B `permission.list/reply` | C `PermissionRequest` hook decides allow/deny; no list; answer = keystrokes | A `ServerRequest` `item/commandExecution/requestApproval`, `item/fileChange/requestApproval`, `item/permissions/requestApproval` (decisions `accept`, `acceptForSession`, `decline`, `cancel`) — fan-out to a second client **?** | B via extension `tool_call` gate + `ctx.ui.confirm` (extension-owned) |
 | Questions / forms | ✓ B `session.form.*` | C `Notification` only; AskUserQuestion has no external answer | A `item/tool/requestUserInput` (`questions[]`, `options`, `isSecret`), `mcpServer/elicitation/request` | B `ctx.ui.select/input/confirm` are extension-owned; RPC extension UI |
 | Slash catalogue + argument completion | ✓ B keymap + server commands | ✗ (`supportedCommands` is SDK-only) | A `skills/list`, `hooks/list`; built-in TUI slash list not exposed | B `pi.getCommands()` (extension, prompt, skill); built-in TUI commands not listed |
-| Mentions / file search | ✓ B `file.find` | ✗ | A `fuzzyFileSearch` (`query`, `roots`) | ✗ (filesystem via `hc`) |
+| Mentions / file search | ✓ B `file.find` | ✗ | ✓ A `fuzzyFileSearch` (`query`, `roots`) | ✗ (filesystem via `hc`) |
 | Attachments | ✓ B files, skills, agents | ✗ for TTY (`[Image #N]` paste only) | A `UserInput`: `text`, `image`, `localImage`, `audio`, `skill`, `mention` | B `images[]` on prompt |
 | Activity / cost | ✓ B | ◐ C `cost.total_cost_usd` (estimate) | A `thread/turns/list`, `thread/items/list`, token usage | RPC `get_session_stats` |
-| Shell command | ✓ B `session.shell` | D `!` prefix | A `thread/shellCommand`, `command/exec` | RPC `bash`; `!` prefix |
+| Shell command | ✓ B `session.shell` | D `!` prefix | ✓ A `thread/shellCommand`, `command/exec` | RPC `bash`; `!` prefix |
 | Read / write the native draft | ✗ (unsent agent/auto state unavailable) | ✗ | ✗ | B `ctx.ui.getEditorText/setEditorText` (TUI only) |
 | Hide the native prompt | ✗ no supported slot | ✗ | ✗ | B `ctx.ui.setEditorComponent` (`modal-editor.ts` replaces the editor) |
 
@@ -145,54 +145,64 @@ Next for Claude (ranked):
    `claude -p --input-format stream-json` itself and renders the stream, instead of
    a TTY. That is the only route to receipts, queue control and mode-by-name.
 
-### Codex 0.166.0 — tier A, verified live
+### Codex 0.166.0 — tier A, implemented through a sidecar bridge
+
+Implemented (`adapters/codex`, `npm run codex:install`, `npm run test:codex-api`,
+evidence in `evidence/codex-api-result.json`): the record, model and effort
+pickers, `turn/start` with receipt, steer, interrupt, shell mode, file search,
+image attachments. Approvals, questions and the queue stay native for now.
 
 - The interactive TUI runs its threads on the **shared app-server daemon**
   (`codex app-server --listen unix:// --managed-daemon`, process `codex-tui`
   connected to `/tmp/codex-daemon-1000/<hash>`, symlinked from
   `~/.codex/app-server-control/app-server-control.sock`). The socket speaks
   **WebSocket over HTTP Upgrade**, one JSON-RPC message per text frame, no token.
-  `adapters/codex/app-server.mjs` implements the client; `npm run harness:audit`
-  connected, listed 2 loaded threads with `name`, `cwd`, `status`, `model`,
-  `reasoningEffort`, `originator: codex-tui`.
+  `adapters/codex/app-server.mjs` is the client.
+- Verified live on 2026-11-04: a second connection can `thread/read` any loaded
+  thread and `thread/resume` the TUI's thread (model, reasoning effort, approval
+  policy, sandbox, cwd, turns). `thread/resume` needs a rollout on disk, which a
+  thread only gets with its first user message, so the reporter falls back to
+  `thread/read` and retries the resume on the first `turn/started`.
+  `thread/status/changed` notifications reach every connection, not only
+  subscribers. `thread/turns/list` is refused before the first message
+  ("not materialized") and on legacy-history threads ("list_turns is not
+  supported yet"); `thread/read` with `includeTurns` still returns their turns.
+  A `turn/start` from the bridge returns the turn id, `turn/interrupt` stops it,
+  and the turn is then found by id (smoke with `--allow-generation`).
 - Protocol schema from `codex app-server generate-json-schema`: 106 client
-  requests, 85 notifications, 10 server requests. The rows above map to
-  `thread/resume` (rejoins a running thread), `turn/start` (`input[]`, `model`,
-  `effort`, `approvalPolicy`, `cwd`, `clientUserMessageId`), `turn/steer`
-  (`expectedTurnId`), `turn/interrupt`, `thread/queue/changed`, `thread/status/changed`
-  (`active.activeFlags`), `thread/tokenUsage/updated`, `fuzzyFileSearch`,
-  `skills/list`, `model/list`, `thread/shellCommand`, server requests
-  `item/commandExecution/requestApproval`, `item/fileChange/requestApproval`,
-  `item/permissions/requestApproval`, `item/tool/requestUserInput`,
-  `mcpServer/elicitation/request`.
+  requests, 85 notifications, 10 server requests. Rows map to `thread/resume`,
+  `turn/start` (`input[]`, `model`, `effort`, `approvalPolicy`, `cwd`,
+  `clientUserMessageId`), `turn/steer` (`expectedTurnId`), `turn/interrupt`,
+  `thread/queue/changed`, `thread/status/changed` (`active.activeFlags`),
+  `thread/tokenUsage/updated`, `fuzzyFileSearch`, `skills/list`, `model/list`,
+  `thread/shellCommand`, server requests `item/commandExecution/requestApproval`,
+  `item/fileChange/requestApproval`, `item/permissions/requestApproval`,
+  `item/tool/requestUserInput`, `mcpServer/elicitation/request`.
 - Hooks (`learn.chatgpt.com/docs/hooks`): 14 events, stdin JSON with `session_id`,
   `transcript_path`, `cwd`, `hook_event_name`, `model`, `turn_id`, `permission_mode`
   (`default`, `acceptEdits`, `plan`, `dontAsk`, `bypassPermissions`); `PermissionRequest`
-  may decide `allow`/`deny`. Configured in `~/.codex/hooks.json` (the Herdr
-  `herdr-agent-state.sh` SessionStart hook is already there) and must be trusted
-  with `/hooks`.
+  may decide `allow`/`deny`. Configured in `~/.codex/hooks.json` and trusted once
+  with `/hooks`. The hook's own `permission_mode` is kept as `hookMode` in the
+  record; the footer shows the daemon's approval policy.
 - Config (`learn.chatgpt.com/docs/config-file/config-reference`): `approval_policy`
   `on-request|never|{granular}`, `sandbox_mode` `read-only|workspace-write|danger-full-access`,
   `model_reasoning_effort`, `tui.keymap.<context>.<action>`, `tui.notifications`,
   `notify` (external command, payload fields not read).
 
-Unverified (needs an owned-thread smoke): whether a second client subscribed via
-`thread/resume` receives the TUI's approval `ServerRequest`s and whether a reply
-from it resolves the TUI's dialog (`serverRequest/resolved` suggests yes);
-whether a `turn/start` from Herdr renders in the TUI; the `notify` payload.
+Still unverified: whether a second subscriber receives the TUI's approval
+`ServerRequest`s and whether its reply resolves the TUI dialog
+(`serverRequest/resolved` suggests yes); whether a bridge-started turn renders in
+the TUI (both share the thread, so it should); the `notify` payload.
 
 Next for Codex (ranked):
-1. Reporter: a `UserPromptSubmit`/`Stop`/`SessionStart` hook that writes the
-   `unified-chat` record (thread id, model, permission_mode) to the pane, same
-   shape as the Claude hook, so the composer can pair a terminal with a thread.
-2. `codex-control.js` + client actions over `app-server.mjs`: `snapshot`
-   (`thread/read`), `submit` (`turn/start`), `steer`, `interrupt`, `state`
-   (approvals/questions from server requests), `files`, `catalog` (models,
-   skills), `variant` (effort), mode (approval policy).
-3. Owned-thread smoke mirroring `opencode-api-smoke.mjs`: start an owned thread
-   on the daemon (`thread/start`, `ephemeral: true`), open a second connection,
-   `thread/resume` it there, and assert approval fan-out, `serverRequest/resolved`
-   and `turn.id` receipts. Writes `evidence/codex-api-result.json`.
+1. Approval fan-out smoke: owned thread, a turn that triggers a command approval
+   under `approvalPolicy: "on-request"`, assert the reporter's connection gets
+   `item/commandExecution/requestApproval` and that answering it resolves the
+   request. Then map it into the attention panel and add `permissions` and
+   `forms` to `CODEX_FEATURES`.
+2. Queue view from `thread/queue/changed` + `QueuedSubmission` (native inbox
+   equivalent), and `thread/tokenUsage/updated` already feeds context usage.
+3. Skills (`skills/list`) as `@skill` attachments (`UserInput.skill`).
 
 ### pi 1.4.0 — tier B through an extension
 

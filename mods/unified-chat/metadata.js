@@ -16,6 +16,8 @@ function readReport(terminal, now = Date.now()) {
 const SESSION_IDS = {
   opencode: /^ses_[a-zA-Z0-9]+$/,
   claude: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+  // Codex thread ids are UUIDv7; the reporter is adapters/codex/unified-chat-reporter.mjs.
+  codex: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
 };
 
 export function reportedMetadata(terminal, now = Date.now()) {
