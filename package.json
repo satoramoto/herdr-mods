@@ -1,0 +1,26 @@
+{
+  "name": "herdr-mods",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "check": "node --check mods/unified-chat/main.js && node --check mods/unified-chat/model.js && node --check mods/unified-chat/queue.js && node --check mods/unified-chat/opencode-bridge.mjs && herdr-app check mods/unified-chat",
+    "check:controls": "node scripts/check-controls.mjs",
+    "check:attention": "node scripts/check-attention.mjs",
+    "install:local": "node scripts/install.mjs",
+    "restore:preview": "node scripts/opencode-herdr-restore.mjs --once",
+    "restore:install": "node scripts/install-sessions.mjs",
+    "sessions:install": "node scripts/install-sessions.mjs",
+    "sessions:preview": "node scripts/herdr-sessions.mjs --once",
+    "sessions:ui": "node scripts/install-sessions.mjs --ui-only",
+    "test:adoption:native": "node scripts/adoption-native-smoke.mjs",
+    "test:native": "node scripts/native-smoke.mjs",
+    "test:opencode-api": "node scripts/opencode-api-smoke.mjs",
+    "reporting:audit": "node scripts/reporting-audit.mjs",
+    "check:fold": "node --check mods/fold/main.js && herdr-app check mods/fold",
+    "fold:install": "node scripts/install-fold.mjs",
+    "fold:ui": "node scripts/install-fold.mjs --ui-only",
+    "check:sessions": "node --check mods/sessions/main.js && herdr-app check mods/sessions",
+    "sessions:retire-recovery": "node scripts/retire-recovery-space.mjs"
+  }
+}
