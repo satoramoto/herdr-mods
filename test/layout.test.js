@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { COMPOSER_HEIGHT, EXPANDED_HEIGHT, QUEUE_HEIGHT, fitComposerLayout } from "../mods/unified-chat/layout.js";
+import { COMPOSER_HEIGHT, EXPANDED_HEIGHT, LINE_HEIGHT, MAX_ROWS, QUEUE_HEIGHT, fitComposerLayout } from "../mods/unified-chat/layout.js";
 
 const layoutWith = (bar) => ({
   id: "root", type: "row", children: [{ id: "work", type: "column", children: [
@@ -13,11 +13,12 @@ const composer = (overrides = {}) => ({
   id: "unified-chat-bar", type: "block", content: { mod: "unified-chat" }, ...overrides,
 });
 
-test("composer height fits a two-line editor over the single footer line", () => {
-  // outer 4+8, card border 2, editor padding 10+6, footer 34, two 18px lines
-  const minimum = 4 + 8 + 2 + 10 + 6 + 34 + 18 * 2;
+test("composer height fits a one-line editor over the single footer line, with room to grow", () => {
+  // outer 4+8, card border 2, editor padding 8+8, footer 34, one 18px line
+  const minimum = 4 + 8 + 2 + 8 + 8 + 34 + 18;
   assert.ok(COMPOSER_HEIGHT >= minimum);
-  assert.ok(EXPANDED_HEIGHT >= COMPOSER_HEIGHT + QUEUE_HEIGHT + 5);
+  // The expanded budget holds the queue plus a fully grown editor.
+  assert.ok(EXPANDED_HEIGHT >= COMPOSER_HEIGHT + LINE_HEIGHT * (MAX_ROWS - 1) + QUEUE_HEIGHT + 4);
 });
 
 test("new composer is inserted before status with safe minimum and expansion room", () => {
@@ -37,6 +38,8 @@ test("rerunning install upgrades the overflowing 104px layout without replacing 
   fitComposerLayout(layout);
   before.children[0].children[1].size.px = COMPOSER_HEIGHT;
   before.children[0].children[1].min = COMPOSER_HEIGHT;
+  // The old default ceiling grows just enough for a fully grown editor over the queue.
+  before.children[0].children[1].max = EXPANDED_HEIGHT + 33 + 26;
   assert.deepEqual(layout, before);
   const upgraded = structuredClone(layout);
   fitComposerLayout(layout);
@@ -44,11 +47,11 @@ test("rerunning install upgrades the overflowing 104px layout without replacing 
 });
 
 test("larger personal composer sizes and weighted allocations are preserved", () => {
-  const bar = composer({ size: { px: 300 }, min: 180, max: 340 });
+  const bar = composer({ size: { px: 300 }, min: 180, max: 400 });
   fitComposerLayout(layoutWith(bar));
   assert.deepEqual(bar.size, { px: 300 });
   assert.equal(bar.min, 180);
-  assert.equal(bar.max, 340);
+  assert.equal(bar.max, 400);
   const weighted = composer({ size: { weight: 2 } });
   fitComposerLayout(layoutWith(weighted));
   assert.deepEqual(weighted.size, { weight: 2 });

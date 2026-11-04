@@ -39,7 +39,7 @@ if (!find(base, "work")?.children) throw new Error("This Herdr main layout has n
 console.log(call("check", join(source, "mods", mod)));
 const before = JSON.parse(call("status"));
 await mkdir(installedMod, { recursive: true });
-for (const name of ["layout.js", "admission.js", "completion.js", "drafts.js", "forms.js", "ui-control.js", "attention-panel.js", "claude-panel.js", "claude-control.js", "style.js", "attachments.mjs", "prompt.js", "opencode-panel.js", "opencode-control.mjs", "main.js", "model.js", "queue.js", "metadata.js", "opencode-bridge.mjs", "mod.json"]) {
+for (const name of ["layout.js", "admission.js", "completion.js", "drafts.js", "forms.js", "ui-control.js", "attention-panel.js", "claude-panel.js", "claude-control.js", "style.js", "attachments.mjs", "prompt.js", "opencode-panel.js", "opencode-control.mjs", "main.js", "model.js", "queue.js", "metadata.js", "opencode-bridge.mjs", "mod.json", "corner-down-left.svg", "slash.svg"]) {
   const text = await readFile(join(source, "mods", mod, name), "utf8");
   await writeAtomic(join(installedMod, name), text);
 }

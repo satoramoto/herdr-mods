@@ -1,7 +1,12 @@
-// One card: the editor over a single footer line (recipient, model, actions).
-export const COMPOSER_HEIGHT = 112;
-export const EXPANDED_HEIGHT = 256;
+// One card: the editor over one footer line. Enter sends; there is no button.
+// The editor starts at one line and grows with its content up to MAX_ROWS; the chrome
+// around it is fixed: outer 4+8, card border 2, editor padding 8+8, footer 34.
 export const QUEUE_HEIGHT = 108;
+export const LINE_HEIGHT = 18;
+export const MAX_ROWS = 6;
+export const COMPOSER_CHROME = 4 + 8 + 2 + 8 + 8 + 34;
+export const COMPOSER_HEIGHT = COMPOSER_CHROME + LINE_HEIGHT;
+export const EXPANDED_HEIGHT = COMPOSER_CHROME + LINE_HEIGHT * MAX_ROWS + QUEUE_HEIGHT + 4;
 
 function find(node, id) {
   if (node.id === id) return node;
@@ -26,8 +31,8 @@ export function fitComposerLayout(layout) {
     throw new Error("unified-chat-bar is used by different content; refusing to replace it.");
   }
   // Migrate our previous defaults, while keeping deliberately larger allocations.
-  if (bar.min === 174 || bar.min === 140) bar.min = COMPOSER_HEIGHT;
-  if (bar.size?.px === 174 || bar.size?.px === 140) bar.size.px = COMPOSER_HEIGHT;
+  if ([174, 140, 112, 96, 86].includes(bar.min)) bar.min = COMPOSER_HEIGHT;
+  if ([174, 140, 112, 104, 86].includes(bar.size?.px)) bar.size.px = COMPOSER_HEIGHT;
   bar.min = Math.max(bar.min ?? 0, COMPOSER_HEIGHT);
   bar.max = Math.max(bar.max ?? 0, bar.min, EXPANDED_HEIGHT + 33 + 26);
   if (!bar.size || "px" in bar.size) {

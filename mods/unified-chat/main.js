@@ -1,10 +1,10 @@
-import { View, div, svg } from "gpui-kit";
-import { h_flex, v_flex, Button, Textarea, TextareaState, Popup, Progress, ProgressTrack, ProgressIndicator } from "gpui-base";
+import { View, div, svg, PathBuilder } from "gpui-kit";
+import { h_flex, v_flex, Button, Textarea, TextareaState, Popup } from "gpui-base";
 import { agents, spaces, terminals, focused, theme, props, run, hc, exec, appHome, nextCommand, openOverlay, closeOverlay, shared, setShared } from "herdr";
 import { Composer, targetsFrom, targetFromFocus, decodeResult } from "./model.js";
 import { Outbox, messageBlock } from "./queue.js";
-import { metadataText, reportedMetadata } from "./metadata.js";
-import { COMPOSER_HEIGHT, EXPANDED_HEIGHT, QUEUE_HEIGHT } from "./layout.js";
+import { reportedMetadata } from "./metadata.js";
+import { COMPOSER_CHROME, COMPOSER_HEIGHT, LINE_HEIGHT, MAX_ROWS, QUEUE_HEIGHT } from "./layout.js";
 import { bridgeFor, claudeFor, promptLabels } from "./prompt.js";
 import { OpenCodePanel } from "./opencode-panel.js";
 import { RichDrafts } from "./drafts.js";
@@ -13,7 +13,7 @@ import { ClaudePanel } from "./claude-panel.js";
 import { requestControl } from "./ui-control.js";
 import { admitInOrder, restoreSubmissions } from "./admission.js";
 import { mentionTrigger, removeMentionMarker, slashHead, applyArgumentEdit } from "./completion.js";
-import { RADIUS, card, panel, chip, menu, item } from "./style.js";
+import { RADIUS, card, panel, chip, menu, item, divider as rule } from "./style.js";
 
 const STORAGE = "unified-chat.state.v2";
 const STATUS = { idle: "Ready", done: "Ready", working: "Working", blocked: "Needs you" };
@@ -61,8 +61,10 @@ export default class UnifiedChat extends View {
       { keystroke: "escape", action: "unified-chat-close-panel", context: "UnifiedChatAttachedPanel" },
       { keystroke: "escape", action: "unified-chat-close-panel", context: "UnifiedChatAttachedPanel > Input" },
     ]);
-    this.editor = TextareaState.new({ placeholder: "Write a message…", rows: 2 });
+    this.editor = TextareaState.new({ placeholder: "Write a message…", rows: 1 });
     this.editor.set_soft_wrap(true);
+    // One line at rest; the editor grows with its content, wrapped lines included, and the bar follows it.
+    this.editor.set_auto_grow(1, MAX_ROWS);
     this.editor.on("change", (_event, cx) => {
       if (this.restoring) return;
       const mention = mentionTrigger(this.model.text(), this.editor.value());
@@ -503,8 +505,9 @@ export default class UnifiedChat extends View {
       finally { this.controlsPending.delete(target.key); cx.notify(); }
     });
   }
-  choose() {
-    this.attachedPanel = null; this.pendingPanel = null; this.attachedPicker = true;
+  // "settings" is this agent's model, mode and effort; "recipients" is the list of agents to write to.
+  choose(kind = "settings") {
+    this.attachedPanel = null; this.pendingPanel = null; this.attachedPicker = kind;
     this.recipientHandle.focus();
   }
 
@@ -520,20 +523,41 @@ export default class UnifiedChat extends View {
     cx.notify();
   }
 
-  // Herdr's buttons: text (quiet, hover shows a fill), primary (solid ink), secondary (raised with the input border).
-  button(t, id, label, action, { disabled = false, title = label, kind = "text" } = {}) {
-    const solid = kind === "primary" && !disabled;
+  // Herdr's buttons: text (quiet, hover shows a fill) and secondary (raised with the input border).
+  button(t, id, label, action, { disabled = false, kind = "text" } = {}) {
     return Button.new(id).disabled(disabled).flex_none().h(24).px(kind === "text" ? 6 : 10).rounded(RADIUS - 1).flex().items_center().justify_center()
-      .text_size(11.8).text_color(disabled ? t.dim : solid ? t.solid_foreground : t.muted)
-      .when(solid, (el) => el.bg(t.solid).font_medium())
+      .text_size(11.8).text_color(disabled ? t.dim : t.muted)
       .when(kind === "secondary", (el) => el.bg(t.raised).border_1().border_color(t.input).text_color(disabled ? t.dim : t.foreground))
-      .when(kind === "primary" && disabled, (el) => el.bg(t.raised))
       .when(!disabled && kind === "text", (el) => el.cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground)))
       .when(!disabled && kind !== "text", (el) => el.cursor_pointer().hover((s) => s.opacity(0.88)))
-      .tooltip(title).on_click((event, cx) => {
+      .on_click((event, cx) => {
         cx.stop_propagation();
         if (!disabled) action(event, cx);
       }).child(label);
+  }
+
+  // This agent's settings, as a menu: one row per picker, the current value at the right.
+  // Choosing a row swaps this menu for that picker (model, permission mode or effort).
+  renderSettings(t, target, labels, live, rich) {
+    const row = (id, name, value, kind, hot = false) => item(Button.new(`setting-${id}`).w_full().min_w(0), t, false)
+      .disabled(!live)
+      .on_click((_e, cx) => { this.openControls(kind); cx.notify(); })
+      .child(div().flex_none().text_color(t.foreground).child(name))
+      .child(div().flex_1().min_w(0).truncate().text_right().text_color(hot ? t.blocked : live ? t.muted : t.dim).child(value))
+      .when(live, (el) => el.child(svg("mods/files/chevron-right.svg").size(11).flex_none().text_color(t.dim)));
+    const summary = [labels.provider, labels.context].filter((part) => part && part !== "Context not reported").join(" · ");
+    return menu(v_flex().w_full(), t)
+      .child(div().px(8).pt(6).pb(3).text_size(11).font_semibold().text_color(t.dim).truncate().child(target?.label ?? "No agent"))
+      .when(rich.mode === "shell", (el) => el.child(item(Button.new("setting-exit-shell").w_full().min_w(0), t, false)
+        .on_click((_e, cx) => { rich.mode = "normal"; this.saveOrWarn(); this.dismissControls(cx); })
+        .child(div().flex_1().text_color(t.blocked).child("Exit shell mode"))
+        .child(div().flex_none().text_size(11).text_color(t.dim).child("Esc"))))
+      .when(rich.mode !== "shell", (el) => el
+        .child(row("model", "Model", labels.model, "models"))
+        .child(row("mode", "Mode", labels.mode, "agents"))
+        .child(row("effort", "Effort", labels.variant, "variants")))
+      .child(rule(t))
+      .child(div().px(8).pt(2).pb(4).text_size(11).text_color(t.dim).truncate().child(summary || labels.directory));
   }
 
   renderPicker(t) {
@@ -574,7 +598,7 @@ export default class UnifiedChat extends View {
           .child(div().flex_none().text_size(10).text_color(item.state === "uncertain" ? t.blocked : t.dim).child(item.state))
           .child(this.button(t, `remove-${item.id}`, "×", (_event, cx) => {
             this.outbox.remove(target.key, item.id); this.saveOrWarn(); cx.notify();
-          }, { disabled: item.state === "sending", title: "Remove from queue; uncertain deliveries may already have reached the agent" }))))
+          }, { disabled: item.state === "sending" }))))
         .when(!queue.items.length, (el) => el.child(div().text_size(12).text_color(t.dim).child("No queued messages."))));
   }
 
@@ -586,7 +610,8 @@ export default class UnifiedChat extends View {
     this.needsPump = true;
     const queue = target ? this.outbox.get(target.key) : { items: [], paused: false };
     const parts = target ? this.rich.get(target.key).parts : [];
-    const blocked = messageBlock(target, this.model.text() || (parts.length ? "[attachments]" : ""));
+    const text = this.model.text();
+    const blocked = messageBlock(target, text || (parts.length ? "[attachments]" : ""));
     const metadata = target ? reportedMetadata(target.terminal) ?? this.metadata.get(target.key) : null;
     if (bridgeFor(target) && metadata?.revision !== this.controls.get(target.key)?.revision) this.needsControls = true;
     const connected = Boolean(bridgeFor(target));
@@ -605,26 +630,41 @@ export default class UnifiedChat extends View {
     if (rich.selection?.agent) labels.mode = `${rich.selection.agent} *`;
     if (rich.selection?.model) { labels.model = `${rich.selection.modelName ?? rich.selection.model.id} *`; labels.provider = rich.selection.model.providerID; labels.variant = rich.selection.model.variant ?? "default"; }
     if (rich.mode === "shell") labels.mode = "Shell (!)";
-    const details = metadataText(metadata);
-    const help = "Return queues · Cmd/Ctrl+Return or Shift+Return inserts a newline · Escape stops (repeatable)";
     const hint = this.error ?? this.storageError ?? (queue.paused ? queue.reason : null);
     const state = this.nativeState?.key === target?.key ? this.nativeState : null;
     const requests = (state?.permissions?.length ?? 0) + (state?.forms?.length ?? 0);
     const queued = (state?.inbox?.filter((item) => item.type === "user").length ?? 0) + queue.items.length + [...this.submissions.values()].filter((item) => item.key === target?.key).length;
     const stopping = target && (target.status === "working" || this.stopPending.has(target.key));
-    const height = (this.showQueue ? EXPANDED_HEIGHT : COMPOSER_HEIGHT) + (parts.length ? 33 : 0) + (hint ? 26 : 0);
+    // The editor reports its own height as it grows; everything else around it is fixed chrome.
+    const height = COMPOSER_CHROME + Math.max(LINE_HEIGHT, this.editorHeight ?? LINE_HEIGHT) + (this.showQueue ? QUEUE_HEIGHT + 4 : 0) + (parts.length ? 33 : 0) + (hint ? 26 : 0);
     if (height !== this.composerHeight) { this.composerHeight = height; this.needsResize = true; }
-    const infoTitle = metadata
-      ? `${details}\nContext is input + cache + output from the last reported request, not a live count. Sample: ${metadata.sampledAt ? new Date(metadata.sampledAt).toLocaleTimeString() : "not reported"}. Input limit: ${metadata.inputLimit ?? "not reported"}.\n${help}`
-      : `Not exposed by this harness, or no verified adapter is connected. OpenCode shared-service sessions report metadata through its local API.\n${help}`;
-    const dot = () => div().flex_none().text_color(t.dim).child("·");
-    // A footer text button that opens a picker: hover fill like Herdr's, a dropdown chevron when it is live,
-    // and a tooltip that says why when the harness exposes no control.
-    const inline = (id, label, color, disabled, title, action) => Button.new(id).min_w(0).flex_shrink_1().h(24).px(6).gap(3).rounded(RADIUS - 1).flex().items_center().text_color(color)
-      .disabled(disabled).tooltip(disabled ? `${label}\nNot adjustable here: this agent exposes no live control.` : `${title}\nClick to change`)
+    // Footer vocabulary: one height (24), one text size, one colour weight. Chips separate
+    // themselves on hover, so there are no dots or hairlines between them.
+    // A square icon button for the auxiliaries at the right; `extra` sits beside the glyph.
+    const iconButton = (id, glyph, action, { disabled = false, extra = null, color = t.muted } = {}) => Button.new(id).disabled(disabled).flex_none().h(24).min_w(24).px(5).gap(5).rounded(RADIUS - 1).flex().items_center().justify_center()
+      .text_color(disabled ? t.dim : color)
       .when(!disabled, (el) => el.cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground)))
-      .on_click(action).child(div().min_w(0).truncate().child(label))
-      .when(!disabled, (el) => el.child(svg("mods/files/chevron-down.svg").size(10).flex_none().text_color(t.dim)));
+      .on_click((event, cx) => { cx.stop_propagation(); if (!disabled) action(event, cx); })
+      .child(svg(glyph).size(14).flex_none())
+      .when(extra != null, (el) => el.child(extra));
+    const contextShare = Math.max(0, Math.min(100, labels.contextPercent ?? 0));
+    const contextHot = labels.contextPercent != null && labels.contextPercent >= 80;
+    // Context as a small ring: a faint full track with the used share drawn over it, clockwise from
+    // the top. Each band is one filled polygon in percent coordinates, so it stays round at any zoom.
+    const ring = (share, color) => {
+      const band = (from, to, outer, inner) => {
+        const steps = Math.max(2, Math.ceil(48 * (to - from) / (2 * Math.PI)));
+        const point = (radius, angle) => [`${50 + radius * Math.sin(angle)}%`, `${50 - radius * Math.cos(angle)}%`];
+        const points = [];
+        for (let i = 0; i <= steps; i++) points.push(point(outer, from + (to - from) * i / steps));
+        for (let i = steps; i >= 0; i--) points.push(point(inner, from + (to - from) * i / steps));
+        return PathBuilder.fill().add_polygon(points, true).build();
+      };
+      const sweep = 2 * Math.PI * Math.min(share, 100) / 100;
+      return div().size(14).flex_none()
+        .child(window.paint_path(band(0, 2 * Math.PI, 50, 38), t.raised).absolute().top_0().left_0().size(14))
+        .when(share > 0.5, (el) => el.child(window.paint_path(band(0, sweep, 50, 38), color).absolute().top_0().left_0().size(14)));
+    };
     const composer = v_flex().id("unified-chat").track_focus(this.handle).key_context("UnifiedChatComposer")
       .on_size_change((size, cx) => {
         const previous = this.width ?? 800; this.width = size.width;
@@ -639,80 +679,73 @@ export default class UnifiedChat extends View {
       .on_action("unified-chat-history-next", (_event, cx) => { cx.stop_propagation(); this.history(1, cx); })
       .on_action("unified-chat-steer", (_event, cx) => { cx.stop_propagation(); this.enqueue(cx, "steer"); })
       .on_drop((event, cx) => this.captureAttachments(event.paths, cx))
-      .size_full().min_w(0).min_h(0).overflow_hidden().bg(t.canvas).px(10).pt(4).pb(8).gap(4)
+      .size_full().min_w(0).min_h(0).overflow_hidden().bg(t.canvas).px(8).pt(4).pb(8).gap(4)
        .text_size(13).text_color(t.foreground)
        .when(this.showQueue, (el) => el.child(this.renderQueue(t, target, queue)))
        .child(card(v_flex().flex_1().min_h(0).min_w(0).overflow_hidden(), t, this.editing)
-        .child(v_flex().flex_1().min_h(0).min_w(0).px(12).pt(10).pb(6).gap(6)
+        .child(v_flex().flex_1().min_h(0).min_w(0).px(12).py(8).gap(6)
         .when(parts.length > 0, (el) => el.child(h_flex().flex_none().h(28).gap(5).min_w(0).overflow_x_scroll()
           .child(this.button(t, "preview-attachments", "Preview", () => this.openControls("attachments")))
           .children(parts.map((part, index) => this.button(t, `attachment-${index}`, `${part.kind === "file" ? "File" : "@"} ${part.name ?? part.id} ×`, (_e, cx) => {
             this.rich.remove(target.key, index); this.saveOrWarn(); this.needsResize = true; cx.notify();
-          }, { title: `Remove ${part.name ?? part.id}; structured ${part.kind} attachment` })))))
-        .child(div().flex_1().min_h(0).min_w(0).overflow_hidden()
-          .child(Textarea.new(this.editor).disabled(!target).size_full().min_h(0).min_w(0).text_size(13).text_color(t.foreground))))
+          }, {})))))
+        // No send or stop buttons: Enter sends, Esc stops. The end of the line carries the cue:
+        // a faint return glyph while idle, "Esc to stop" while the agent works, and it keeps its
+        // slot when hidden so the text never reflows around it.
+        .child(h_flex().flex_none().min_w(0).gap(8).items_end()
+          .child(div().flex_1().min_w(0).overflow_hidden()
+            .on_size_change((size, cx) => { const measured = Math.round(size.height); if (measured !== this.editorHeight) { this.editorHeight = measured; cx.notify(); } })
+            .child(Textarea.new(this.editor).disabled(!target).w_full().min_w(0).text_size(13).text_color(t.foreground)))
+          .child(Boolean(stopping) || rich.mode === "shell"
+            ? div().flex_none().h(18).flex().items_center().text_size(11).text_color(t.dim).child(rich.mode === "shell" ? "Esc to exit shell" : "Esc to stop")
+            : svg("mods/unified-chat/corner-down-left.svg").size(14).flex_none().mb(2).text_color(t.dim)
+              .when(Boolean(text) || !target, (el) => el.invisible()))))
         .when(Boolean(hint), (el) => el.child(div().flex_none().h(22).px(12).min_w(0).truncate().text_size(11).text_color(t.blocked).tooltip(hint).child(hint)))
-        .child(h_flex().flex_none().h(34).px(compact ? 4 : 8).min_w(0).gap(compact ? 2 : 6).items_center().border_t_1().border_color(t.border).text_size(11.8).text_color(t.muted)
-         .child(Button.new("composer-target").flex_none().min_w(0).max_w(280).h(24).px(6).gap(6).rounded(RADIUS - 1).flex().items_center().justify_start().cursor_pointer().hover((s) => s.bg(t.hover))
-           .tooltip(`${workspace}\n${workspaceStatus}\n${target ? `${target.label} · ${target.space_name} · ${target.address}\n${STATUS[target.status] ?? "Unknown"}\n` : ""}${labels.directory}\nChange recipient; drafts stay with their agent`)
+        .child(h_flex().flex_none().h(34).px(compact ? 4 : 8).min_w(0).gap(4).items_center().border_t_1().border_color(t.border).text_size(12).text_color(t.muted)
+         // Who you are talking to, as one pill: "● Claude Code  Fable 5.1". Clicking it opens the
+         // settings menu for this agent (model, mode, effort); switching agents lives on the agents icon.
+         .child(Button.new("composer-target").flex_none().min_w(0).max_w(420).h(24).px(6).gap(6).rounded(RADIUS - 1).flex().items_center().justify_start().cursor_pointer().hover((s) => s.bg(t.hover))
            .on_click((_e, cx) => { this.choose(); cx.notify(); })
            .child(div().size(6).flex_none().rounded(3).bg(target ? t[target.status] ?? t.dim : t.dim))
            .child(div().min_w(0).truncate().text_color(t.foreground).child(target?.label ?? "Choose an agent"))
-           .when(wide, (el) => el
-             .child(svg(`mods/workspace-chrome/${space?.machine ? "server" : "monitor"}.svg`).size(13).flex_none().text_color(t.dim))
-             .when(Boolean(space?.machine), (el) => el.child(div().min_w(0).truncate().text_color(t.dim).child(space.machine)))
-             .when(Boolean(space?.branch), (el) => el
-               .child(svg("mods/workspace-chrome/git-branch.svg").size(12).flex_none().text_color(t.dim))
-               .child(div().min_w(0).truncate().text_color(t.dim).child(space.branch)))))
-         // mode · model · provider · variant, each a text button; this run takes the slack.
-         .child(h_flex().flex_1().min_w(0).gap(0).items_center()
-           .child(dot())
-           .child(inline("composer-mode", labels.mode, live ? rich.mode === "shell" ? t.blocked : t.muted : t.dim, !live,
-             "Choose from the live catalogue. * marks a composer override; clear it in this picker. Native unsent agent/auto-permission state is not exposed.",
-             (_e, cx) => { if (rich.mode === "shell") { rich.mode = "normal"; this.saveOrWarn(); cx.notify(); } else this.openControls("agents"); }))
-           .when(rich.mode !== "shell", (el) => el
-             .child(dot()).child(inline("composer-model", labels.model, t.foreground, !live,
-               "Choose a live model for structured submission. * marks a composer override; clear it in this picker to follow the native client again.",
-               () => this.openControls("models")))
-             .when(Boolean(labels.provider) && wide, (el) => el.child(dot()).child(div().min_w(0).flex_shrink_1().px(6).truncate().text_color(t.dim).child(labels.provider)))
-             .when(!compact, (el) => el.child(dot()).child(inline("composer-variant", labels.variant, t.muted, !live,
-               "Select from this model's live reasoning variants", () => this.openControls("variants"))))))
-         .when(connected && (requests > 0 || target?.status === "blocked"), (el) => el.child(this.button(t, "composer-attention", requests ? `${requests} to review` : "Review", () => this.openControls("attention"), { title: "Review permissions and question forms", kind: "secondary" }).text_color(t.blocked)))
-         .when(queued > 0 || queue.paused || this.showQueue, (el) => el.child(this.button(t, "composer-queue", `${queued} queued${queue.paused ? " · paused" : ""}`, (_e, cx) => this.toggleQueue(cx), { title: "Inbox, retained drafts and delivery receipts" }).text_color(queue.paused ? t.blocked : t.working)))
-         .when(!compact || needsAttention > 0, (el) => el.child(this.button(t, "composer-workspace-agents", h_flex().gap(5).items_center()
-           .when(!compact, (el) => el
-             .child(svg("mods/workspace-chrome/layers.svg").size(13).text_color(t.dim))
-             .child(div().text_color(t.foreground).child(workspaceAgents.length))
-             .child(div().text_color(t.dim).child("agents")))
-           .when(needsAttention > 0, (el) => el.child(chip(h_flex().gap(4).items_center(), t).text_color(t.blocked)
-             .child(div().child(needsAttention)).child(div().child("needs you")))),
-           (_e, cx) => { this.choose(); cx.notify(); }, { title: `${workspace}\n${workspaceStatus}\nBrowse agents` })))
-         .when(!compact, (el) => el.child(h_flex().flex_none().h(24).px(6).gap(6).items_center().tooltip(`Context: ${labels.context}\n${infoTitle}`)
-           .when(labels.contextPercent != null, (el) => el.child(Progress.new("composer-context").value(Math.max(0, Math.min(100, labels.contextPercent))).w(28).h(4)
-             .child(ProgressTrack.new().size_full().rounded(2).bg(t.raised).overflow_hidden()
-               .child(ProgressIndicator.new().h_full().w(28 * Math.max(0, Math.min(100, labels.contextPercent)) / 100).bg(labels.contextPercent >= 90 ? t.blocked : t.accent)))))
-           .child(div().text_color(labels.contextPercent >= 90 ? t.blocked : t.muted).child(labels.contextPercent != null ? `${labels.contextPercent}%` : labels.context === "Context not reported" ? "Context —" : labels.context))))
-         .child(this.button(t, "composer-terminal", svg("mods/workspace-chrome/terminal.svg").size(14), () => this.focusTerminal(), { disabled: !target, title: `Focus the native terminal\n${labels.directory}` }))
-         .child(this.button(t, "composer-tools", "…", () => this.openControls("tools"), { disabled: !target, title: "Attachments, history, queue, shell and session tools" }))
-         .when(Boolean(stopping) || rich.mode === "shell", (el) => el.child(this.button(t, "composer-stop", rich.mode === "shell" ? "Exit shell" : "Stop", (_e, cx) => this.stop(cx), { title: "Escape: exit shell mode or interrupt. Press again if needed; also pauses the queue.", kind: "secondary" }).text_color(t.blocked)))
-         .child(this.button(t, "composer-send", rich.mode === "shell" ? "Run ↵" : "Send ↵", (_e, cx) => this.enqueue(cx), { disabled: Boolean(blocked), title: blocked ?? help, kind: "primary" }))
-         .when(connected, (el) => el.child(this.button(t, "composer-commands", h_flex().gap(6).items_center()
-           .child(div().child("Commands"))
-           .when(!compact, (el) => el.child(chip(div(), t).text_size(10).text_color(t.dim).child("Ctrl+P"))),
-           (_e, cx) => { this.openControls(); cx.notify(); }, { title: "Live command palette (Ctrl+P)" })))));
+           .when(Boolean(target), (el) => el.child(div().min_w(0).truncate().text_color(rich.mode === "shell" ? t.blocked : t.muted).child(rich.mode === "shell" ? labels.mode : labels.model)))
+           // Where it runs, only when that says something: a remote machine or a branch. "This computer" stays in the tooltip.
+           .when(wide && Boolean(space?.machine), (el) => el
+             .child(svg("mods/workspace-chrome/server.svg").size(13).flex_none().text_color(t.dim))
+             .child(div().min_w(0).truncate().text_color(t.dim).child(space.machine)))
+           .when(wide && Boolean(space?.branch), (el) => el
+             .child(svg("mods/workspace-chrome/git-branch.svg").size(12).flex_none().text_color(t.dim))
+             .child(div().min_w(0).truncate().text_color(t.dim).child(space.branch))))
+         .child(div().flex_1().min_w(0))
+         .when(connected && (requests > 0 || target?.status === "blocked"), (el) => el.child(this.button(t, "composer-attention", requests ? `${requests} to review` : "Review", () => this.openControls("attention"), { kind: "secondary" }).text_color(t.blocked)))
+         .when(queued > 0 || queue.paused || this.showQueue, (el) => el.child(this.button(t, "composer-queue", `${queued} queued${queue.paused ? " · paused" : ""}`, (_e, cx) => this.toggleQueue(cx), {}).text_color(queue.paused ? t.blocked : t.working)))
+         // The auxiliaries, spaced apart so they read as separate things: agents, context, terminal, tools, commands.
+         .child(h_flex().flex_none().gap(8).ml(4).items_center()
+         .when(!compact || needsAttention > 0, (el) => el.child(iconButton("composer-workspace-agents", "mods/workspace-chrome/layers.svg", (_e, cx) => { this.choose("recipients"); cx.notify(); },
+           { extra: h_flex().gap(4).items_center()
+             .when(!compact, (el) => el.child(div().child(workspaceAgents.length)))
+             .when(needsAttention > 0, (el) => el.child(chip(h_flex().gap(4).items_center(), t).text_color(t.blocked)
+               .child(div().child(needsAttention)).child(div().child("needs you")))) })))
+         .when(!compact, (el) => el.child(h_flex().flex_none().h(24).px(5).gap(5).items_center()
+           .when(labels.contextPercent != null, (el) => el.child(ring(contextShare, contextHot ? t.blocked : t.accent)))
+           .child(div().text_color(contextHot ? t.blocked : t.muted).child(labels.contextPercent != null ? `${labels.contextPercent}%` : labels.context === "Context not reported" ? "Context —" : labels.context))))
+         .child(iconButton("composer-terminal", "mods/workspace-chrome/terminal.svg", () => this.focusTerminal(), { disabled: !target }))
+         .child(iconButton("composer-tools", "mods/workspace-chrome/settings.svg", () => this.openControls("tools"), { disabled: !target }))
+         .when(connected, (el) => el.child(iconButton("composer-commands", "mods/unified-chat/slash.svg", (_e, cx) => { this.openControls(); cx.notify(); }))))));
     // A native anchored surface owned by this exact composer view: no mod
     // window, detached overlay, independent focus target or moving popup.
     return Popup.new("composer-attached-controls", composer).size_full().min_h(0).anchor("bottom_left")
       .when(Boolean(this.attachedPanel) || this.attachedPicker, (el) => el.content(panel(v_flex().key_context("UnifiedChatAttachedPanel"), t)
-        .when(this.attachedPicker, (el) => el.track_focus(this.recipientHandle))
-        // Dialog-like panels get a working area; menus and the recipient list take only what they need.
-        .w(Math.min(this.attachedPanel instanceof ClaudePanel ? 400 : this.attachedPicker ? 440 : 760, Math.max(280, (this.width ?? 800) - 20)))
+        .when(Boolean(this.attachedPicker), (el) => el.track_focus(this.recipientHandle))
+        // Dialog-like panels get a working area; menus, the settings and the recipient list take only what they need.
+        .w(Math.min(this.attachedPanel instanceof ClaudePanel ? 400 : this.attachedPicker === "settings" ? 340 : this.attachedPicker ? 440 : 760, Math.max(280, (this.width ?? 800) - 20)))
         .when(this.attachedPanel instanceof OpenCodePanel, (el) => el.h(360))
         .when(this.attachedPanel instanceof AttentionPanel, (el) => el.h(520))
         .when(!(this.attachedPanel instanceof OpenCodePanel) && !(this.attachedPanel instanceof AttentionPanel), (el) => el.max_h(360))
         .overflow_hidden()
         .on_action("unified-chat-close-panel", (_e, cx) => { cx.stop_propagation(); this.dismissControls(cx); })
         .on_mouse_down_out((_e, cx) => { this.attachedPanel = null; this.pendingPanel = null; this.attachedPicker = false; cx.notify(); })
-        .child(div().flex_1().min_h(0).child(this.attachedPicker ? this.renderPicker(t) : this.attachedPanel.render(t)))));
+        .child(div().flex_1().min_h(0).child(this.attachedPicker === "settings" ? this.renderSettings(t, target, labels, live, rich)
+          : this.attachedPicker ? this.renderPicker(t) : this.attachedPanel.render(t)))));
   }
 }
