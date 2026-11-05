@@ -30,5 +30,6 @@
     "composer:install": "node scripts/install-composer.mjs",
     "composer:ui": "node scripts/install-composer.mjs --ui-only",
     "test:claude-mod": "claude plugin validate adapters/claude/herdr-composer && claude plugin test adapters/claude/herdr-composer"
-  }
+  },
+  "license": "MIT"
 }
