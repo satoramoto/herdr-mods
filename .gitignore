@@ -3,3 +3,4 @@ evidence/
 *.error
 mods/*/jsconfig.json
 mods/*/*.d.ts
+__pycache__/
