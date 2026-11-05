@@ -1,0 +1,6 @@
+{
+  "name": "herdr-composer",
+  "version": "0.1.0",
+  "description": "In a Herdr terminal, blanks Claude's prompt hint and mode lines while Herdr's unified composer is the input; a per-terminal state file switches it back.",
+  "types": "./types/index.d.ts"
+}

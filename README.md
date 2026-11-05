@@ -163,6 +163,34 @@ herdr-app do layout.switch '{"name":"main"}'
 
 No global keys are installed. The Return/Escape bindings apply only inside the composer. Optional app commands for a shown copy are `unified-chat.focus`, `unified-chat.send`, `unified-chat.stop` and `unified-chat.terminal`.
 
+#### Composer toggle: Unified or Harness, per terminal
+
+```sh
+npm run composer:install   # pane header with the toggle; swaps the layout's `pane` header for `pane-composer`
+npm run composer:ui        # hot-reload the header mod only
+```
+
+Hovering a terminal pane's header shows the current composer, **Unified** or
+**Harness**, beside the split, zoom and close buttons; a click flips it. *Unified*
+(the default) keeps Herdr's chat bar as the input; *Harness* hides the bar while
+that terminal has the focus, so the agent's native prompt is the only composer;
+nothing shows at rest. The bar follows the window's focus: moving to a terminal in
+the other state shows or hides it again. The choice is per terminal, kept in the
+shared value `unified-chat.composer`, and also written to
+`~/.local/state/unified-chat/composer/<terminal>.json`. `herdr-app do
+pane-composer.toggle` (or `.unified`, `.harness`) switches the focused terminal, so
+a keys.json binding can too.
+
+For Claude Code the state file also drives `adapters/claude/herdr-composer`, a
+Claude Code mod that `npm run claude:install` copies to
+`~/.claude/hooks/unified-chat-composer` and names in `CLAUDE_CODE_PLUGIN_DIRS`
+(the `env` block of `~/.claude/settings.json`). In a Herdr terminal in the unified
+state it blanks Claude's hint line (`? for shortcuts`, `shift+tab to cycle`) and the
+session-mode labels; in the harness state, or outside Herdr, Claude draws them as
+usual. Claude Code 2.1.318 offers no way to hide the input box itself or the
+permission-mode pill, so those stay (HARNESSES.md, Claude section). The status line
+is already empty: the reporter prints nothing.
+
 #### Codex: shared-daemon bridge
 
 ```sh

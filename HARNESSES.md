@@ -87,7 +87,7 @@ Legend: **A/B/C/D** tier available (see §1.3) · **✓** implemented in this re
 | Activity / cost | ✓ B | ◐ C `cost.total_cost_usd` (estimate) | A `thread/turns/list`, `thread/items/list`, token usage | RPC `get_session_stats` |
 | Shell command | ✓ B `session.shell` | D `!` prefix | ✓ A `thread/shellCommand`, `command/exec` | RPC `bash`; `!` prefix |
 | Read / write the native draft | ✗ (unsent agent/auto state unavailable) | ✗ | ✗ | B `ctx.ui.getEditorText/setEditorText` (TUI only) |
-| Hide the native prompt | ✗ no supported slot | ✗ | ✗ | B `ctx.ui.setEditorComponent` (`modal-editor.ts` replaces the editor) |
+| Hide the native prompt | ✗ no supported slot | ◐ mod blanks `PromptHint` + `SessionMode` (`adapters/claude/herdr-composer`); the input box and the permission-mode pill have no surface | ✗ | B `ctx.ui.setEditorComponent` (`modal-editor.ts` replaces the editor) |
 
 ## 4. Per-harness findings
 
@@ -133,6 +133,18 @@ permission-modes, remote-control, sessions, model-config, channels, env-vars at
 - **Gaps with no surface:** draft text, queue list/cancel for a TTY session, the
   `/` and `@` pickers, answering AskUserQuestion, `supportedCommands` outside the
   SDK, a stable transcript schema.
+- **Hiding the prompt (checked 2026-11-04 on 2.1.318).** No setting, env var, flag,
+  keybinding or `/config` row hides the input box; `--safe-mode` only drops the
+  status line with everything else. The function-hook mod API (`claude plugin
+  validate`, `ui.render`) draws `PromptHint` (the hint under the prompt) and
+  `SessionMode` (the footer labels) but no component for the input box, and the
+  permission-mode pill (`⏵⏵ auto mode on`) is engine-drawn beside the hint: a hook
+  that replaces the hint with an empty tree leaves `⏵⏵ auto mode on ·`. An empty
+  statusLine output leaves no status row (ours prints nothing). `adapters/claude/
+  herdr-composer` does exactly that much, switched per terminal by the state file
+  Herdr's `pane-composer` header writes; `npm run test:claude-mod` covers it with
+  `claude plugin test`, and an owned `claude --plugin-dir` session under `hc run`
+  verified both states through `hc read`.
 
 Next for Claude (ranked):
 1. Add `Notification`/`PermissionRequest`/`Stop` hook reporting into the record

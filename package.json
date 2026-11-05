@@ -25,6 +25,10 @@
     "fold:install": "node scripts/install-fold.mjs",
     "fold:ui": "node scripts/install-fold.mjs --ui-only",
     "check:sessions": "node --check mods/sessions/main.js && herdr-app check mods/sessions",
-    "sessions:retire-recovery": "node scripts/retire-recovery-space.mjs"
+    "sessions:retire-recovery": "node scripts/retire-recovery-space.mjs",
+    "check:composer": "node --check mods/pane-composer/main.js && herdr-app check mods/pane-composer",
+    "composer:install": "node scripts/install-composer.mjs",
+    "composer:ui": "node scripts/install-composer.mjs --ui-only",
+    "test:claude-mod": "claude plugin validate adapters/claude/herdr-composer && claude plugin test adapters/claude/herdr-composer"
   }
 }
