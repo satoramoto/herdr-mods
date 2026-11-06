@@ -410,3 +410,57 @@ Wayland/socket permissions. Before applying, run `npm test`, `npm run check`, an
 `npm run install:local`, then update the sidebar with `npm run sessions:ui`.
 The running session worker needs restarting to load its updated recovery policy;
 this does not restart harnesses (`systemctl --user restart herdr-sessions.service`).
+
+## Commons
+
+The research repo and the pain stack as an isometric festival campsite, in the sidebar
+under the spaces list, with a pop-out window (`mod.open commons`, or the header's ⤢).
+
+- **The ridge:** one tent per research track (A–E); each swarm in `swarms/SWARM_INDEX.md`
+  is a site below its tent. Planned sites are dashed blueprints, sites touched in the last
+  ten minutes (or with an agent working there) show scaffolding and sparks, complete sites
+  are buildings with a flag; an erratum is a patched roof. Swarms that require the APU run a
+  dashed cable to the APU dome.
+- **The meadow:** the Manuscript Hall (the root documents), Press Tent (the Jekyll site),
+  Gallery (one frame per plot in `swarms/reports/plots`), Bandstand (idle agents jam there),
+  Mara's chalkboard, the Old Observatory (the archive), the Festival board (the index), and
+  the Gate (agents working outside the repo wait there).
+- **The yard:** the Power Plant is `pain-engine` (purple when up, grey when down, dim red
+  when unhealthy); smoke rises while a model is loaded, more with GPU load. Crates in the
+  depot are the models llama-server lists, the lit one loaded. The Lab Barn is `pain-lab`;
+  the jars in front are the last `experiments/lab_runs.jsonl` rows, green for exit 0. The
+  Reservoir is the dataset volume. The APU dome glows while a model is loaded.
+- **Weather:** `git status`. A cloud sits over every district with modified files, a pop-up
+  tent beside one with new files. The ticker along the bottom cycles the news.
+- **Sims:** every live agent, colored by harness (Claude orange, OpenCode blue, Codex green,
+  pi purple). A working sim runs a short errand between its district (that of the newest
+  changed file) and a nearby supply building; blocked ones hold up a `!`; idle ones sway at
+  the bandstand or forage around the meadow. Sub-agents are smaller figures circling their
+  parent (click to peek). Carrier ants bring every file changed in the last ten minutes in
+  from the gate (new) or the hall (edited), carrying a block in the district's color. A
+  truck runs crates from the depot to the plant while a model is loaded; a lab tech hauls
+  water from the reservoir while a lab job runs. The duck wanders; two crows circle the
+  observatory. Every motion is a native `loop` on left/top, so nothing re-renders to move.
+- **Trails and flashes:** the routes walked wear into the grass a little deeper each poll
+  (kept in `localStorage`, fading when unused); a ring pulses where a file changed in the
+  last ninety seconds.
+- **Time of day:** dusk tints the ground, night darkens it, lights the windows and strings
+  festival lights along the ridge.
+
+**Putting it away.** The header's `–` hides the block (`layout.hide commons`);
+`layout.toggle commons` brings it back, from the palette, a key, or
+`herdr-app do layout.toggle --id commons`. `npm run commons:install -- --key ctrl-shift-m`
+binds a free chord to that toggle (keys.json is backed up beside itself). Hidden, the mod
+is dormant: Herdr keeps the copy and its timers, but every tick first checks whether a
+block showing the mod is drawn and otherwise returns, so no git, docker, curl or redraw
+runs; the native loops only animate while drawn. The first tick after it shows again
+catches up. The pop-out window is a separate copy that ends when it closes.
+
+`npm run check:commons` runs the pure tests (`test/commons-*.test.js`: the index parser,
+districts, the scene, the docker/llama-server/lab parsers, the isometric geometry) and
+`herdr-app check`. `npm run commons:install` copies the mod and adds one block to the
+personal layout's `sidebar-lists` (backup beside the layout); `--ui-only` updates the mod
+alone; `--repo`, `--pain`, `--port` are written to the installed `config.js`. The observer
+polls every 10 s while the window is active (60 s otherwise) and on repo file changes:
+`git status`, the newest changed files, `docker ps`, llama-server's `/health` and `/models`
+over curl, `gpu_busy_percent`, and the lab log. Nothing is written.

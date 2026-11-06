@@ -29,7 +29,10 @@
     "check:composer": "node --check mods/pane-composer/main.js && herdr-app check mods/pane-composer",
     "composer:install": "node scripts/install-composer.mjs",
     "composer:ui": "node scripts/install-composer.mjs --ui-only",
-    "test:claude-mod": "claude plugin validate adapters/claude/herdr-composer && claude plugin test adapters/claude/herdr-composer"
+    "test:claude-mod": "claude plugin validate adapters/claude/herdr-composer && claude plugin test adapters/claude/herdr-composer",
+    "check:commons": "node --check mods/commons/main.js && node --test test/commons-*.test.js && herdr-app check mods/commons",
+    "commons:install": "node scripts/install-commons.mjs",
+    "commons:ui": "node scripts/install-commons.mjs --ui-only"
   },
   "license": "MIT"
 }
