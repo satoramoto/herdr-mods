@@ -464,3 +464,49 @@ alone; `--repo`, `--pain`, `--port` are written to the installed `config.js`. Th
 polls every 10 s while the window is active (60 s otherwise) and on repo file changes:
 `git status`, the newest changed files, `docker ps`, llama-server's `/health` and `/models`
 over curl, `gpu_busy_percent`, and the lab log. Nothing is written.
+
+## Previews
+
+Every Storybook under the project roots and every preview server running on this machine,
+in one sidebar list under the spaces (`mod.open previews`, or the header's ⤢, for a window).
+The point is one answer to "is a Storybook already serving this?" before anyone starts
+another.
+
+- **Projects:** every folder with a `.storybook` under the roots (`~/Projects`, six deep;
+  `node_modules`, `.git`, `dist`, `build`, `.next` and `storybook-static` are never entered).
+  Each knows its `storybook` script (or whichever script runs `storybook dev`, followed
+  through `npm run …`), the port and host that command asks for, the package manager its
+  nearest lockfile names, and the Storybook version it depends on.
+- **Running:** every `storybook dev`, `start-storybook`, `vite`, `next dev`, `astro dev`
+  and `webpack serve` process on the machine (`ps`), the port it actually listens on (`ss`)
+  and its working directory (`/proc`). A shell wrapper is never counted, only the server it
+  spawned. A server belongs to the deepest project folder its cwd is in; the rest are listed
+  under **Also running** (a scratch folder in `/tmp`, a Vite beside a Storybook).
+- **The row:** a dot (green serving, pulsing while it builds, hollow when stopped, red when
+  two servers serve the same project), the name, its port, and under it the path with the
+  story count and uptime, or, stopped, `:6006 busy (big-red-synth), would use :6007`.
+  Hover for the actions: **▶** starts it in a new tab of its space (its script, through its
+  package manager, with `--port` only when its own port is taken), **↗** opens the browser,
+  **■** sends it SIGTERM. Clicking a row shows the space that holds the project. Start never
+  shows while something already serves the project, and a second server for one project
+  raises a warning toast once.
+- **Dormant and away:** `–` hides the block (`layout.hide previews`; `layout.toggle previews`
+  brings it back); hidden, every tick returns before running anything. ↻ rescans the roots
+  now; otherwise they are rescanned every five minutes, processes every 10 s while the window
+  is active and every minute otherwise, and a serving instance is re-asked for its story
+  count once a minute.
+
+**From a shell** (for agents too): `npm run previews` lists the same table; `--json` for the
+structure. `node scripts/previews.mjs url <name>` prints the URL serving a project and exits 1
+when nothing does; `node scripts/previews.mjs ensure <name>` starts it detached (log in
+`~/.cache/herdr-previews/`) only when nothing serves it, waits until it answers, and prints the
+URL either way. `<name>` is the package name, the folder name, or the label under a root.
+
+`npm run check:previews` runs the pure tests (`test/previews-parse.test.js`: `ps` and `ss`
+parsing, classification, wrapper dedupe, script resolution, matching, conflicts, ordering)
+and `herdr-app check`. `npm run previews:install` copies the mod and adds one block to the
+personal layout's `sidebar-lists` (backup beside the layout); `--ui-only` updates the mod
+alone; `--root <path>` (repeatable) and `--depth <n>` are written to the installed
+`config.js`; `--key <chord>` binds a free chord to the toggle. Linux only for now: `ss` and
+`/proc/<pid>/cwd` are how a server's port and folder are read. Stop is the one thing that
+writes anything, and it only ever signals a pid the list shows.

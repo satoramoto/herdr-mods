@@ -32,7 +32,11 @@
     "test:claude-mod": "claude plugin validate adapters/claude/herdr-composer && claude plugin test adapters/claude/herdr-composer",
     "check:commons": "node --check mods/commons/main.js && node --test test/commons-*.test.js && herdr-app check mods/commons",
     "commons:install": "node scripts/install-commons.mjs",
-    "commons:ui": "node scripts/install-commons.mjs --ui-only"
+    "commons:ui": "node scripts/install-commons.mjs --ui-only",
+    "check:previews": "node --check mods/previews/main.js && node --test test/previews-*.test.js && herdr-app check mods/previews",
+    "previews": "node scripts/previews.mjs",
+    "previews:install": "node scripts/install-previews.mjs",
+    "previews:ui": "node scripts/install-previews.mjs --ui-only"
   },
   "license": "MIT"
 }
